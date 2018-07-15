@@ -1,0 +1,158 @@
+//using System;
+//using System.Threading.Tasks;
+//using Microsoft.Bot.Builder.Dialogs;
+//using Microsoft.Bot.Connector;
+
+//namespace SampleAppBot.Dialogs
+//{
+//    [Serializable]
+//    public class RootDialog : IDialog<object>
+//    {
+//        public Task StartAsync(IDialogContext context)
+//        {
+//            context.Wait(MessageReceivedAsync);
+
+//            return Task.CompletedTask;
+//        }
+
+//        private async Task MessageReceivedAsync(IDialogContext context, IAwaitable<object> result)
+//        {
+//            var activity = await result as Activity;
+
+//            // Calculate something for us to return
+//            int length = (activity.Text ?? string.Empty).Length;
+
+//            // Return our reply to the user
+//            await context.PostAsync($"You sent {activity.Text} which was {length} characters");
+
+//            context.Wait(MessageReceivedAsync);
+//        }
+//    }
+//}
+
+
+
+using System;
+using System.Threading.Tasks;
+using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Connector;
+using Microsoft.Bot.Builder.CognitiveServices.QnAMaker;
+
+using Newtonsoft.Json;
+using System.Collections.Generic;
+using Microsoft.IdentityModel.Protocols;
+using System.Globalization;
+using System.Net;
+using System.Text;
+using System.Net.Http;
+
+namespace QnABot.Dialogs
+{
+    //[Serializable]
+    //[QnAMaker("20b0f78a-125d-4c20-adf4-c8685bb0606c", "e7cb8f22-a944-482e-9ace-adc0524eaa5c")]
+    //public class RootDialog : QnAMakerDialog<object>
+    //{
+    //    public Task StartAsync(IDialogContext context)
+    //    {
+    //        context.Wait(MessageReceivedAsync);
+
+    //        return Task.CompletedTask;
+    //    }
+
+    //    private async Task MessageReceivedAsync(IDialogContext context, IAwaitable<object> result)
+    //    {
+    //        var activity = await result as Activity;
+
+    //        // Calculate something for us to return
+    //        int length = (activity.Text ?? string.Empty).Length;
+
+    //        // Return our reply to the user
+    //        await context.PostAsync($"You sent {activity.Text} which was {length} characters");
+
+    //        context.Wait(MessageReceivedAsync);
+    //    }
+    //}
+
+
+
+
+    public class QnAMakerResult
+    {
+        [JsonProperty(PropertyName = "answers")]
+        public List<Result> Answers { get; set; }
+    }
+    public class Result
+    {
+        [JsonProperty(PropertyName = "answer")]
+        public string Answer { get; set; }
+
+        [JsonProperty(PropertyName = "questions")]
+        public List<string> Questions { get; set; }
+
+        [JsonProperty(PropertyName = "score")]
+        public double Score { get; set; }
+    }
+    [Serializable]
+    public class AnswerDialog : IDialog<object>
+    {
+        public Task StartAsync(IDialogContext context)
+        {
+            context.Wait(QuestionReceivedAsync);
+
+            return Task.CompletedTask;
+        }
+
+        private async Task QuestionReceivedAsync(IDialogContext context, IAwaitable<object> result)
+        {
+            var activity = await result as Activity;
+
+            await context.PostAsync(GetAnswer(activity.Text));
+        }
+
+        private string GetAnswer(string query)
+        {
+            try
+            {
+
+             string responseString = string.Empty;
+
+                var knowledgebaseId = Convert.ToString("e7cb8f22-a944-482e-9ace-adc0524eaa5c", CultureInfo.InvariantCulture);
+
+                //Build the U
+var builder = new UriBuilder(string.Format(Convert.ToString(" https://qnamakerforworkshop.azurewebsites.net//qnamaker/knowledgebases/e7cb8f22-a944-482e-9ace-adc0524eaa5c/generateAnswer/", CultureInfo.InvariantCulture)));
+
+                
+                //Add the question as part of the body  
+                string question = @"{'question': 'Hi','top': 3}";
+                //Send the POST request  
+                using (WebClient client = new WebClient())
+                {
+                    //Set the encoding to UTF8  
+                    client.Encoding = System.Text.Encoding.UTF8;
+
+                    //Add the subscription key header  
+                    var qnamakerSubscriptionKey = Convert.ToString("06fbf6af-5683-421d-9cbe-dd4292879a72", CultureInfo.InvariantCulture);
+                    client.Headers.Add("Authorization", "EndpointKey " + qnamakerSubscriptionKey);
+                    client.Headers.Add("Content-Type", "application/json");
+                    responseString = client.UploadString(builder.Uri, question.ToString());
+                }
+                QnAMakerResult result = JsonConvert.DeserializeObject<QnAMakerResult>(responseString);
+                return result.Answers[0].Answer;
+
+
+
+
+
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+
+        }
+
+    }
+
+
+}
